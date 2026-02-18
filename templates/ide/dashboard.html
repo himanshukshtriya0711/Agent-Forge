@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - AgentForge{% endblock %}
+{% block body_class %}dashboard-page{% endblock %}
+
+{% block extra_css %}
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+{% endblock %}
+
+{% block content %}
+<!-- Background Effects -->
+<div class="page-bg">
+    <div class="gradient-orb gradient-orb-1"></div>
+    <div class="gradient-orb gradient-orb-2"></div>
+</div>
+
+<!-- Header -->
+<header class="header">
+    <div class="header-container">
+        <a href="{% url 'ide:home' %}" class="logo">
+            <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                <path d="M2 17l10 5 10-5"/>
+                <path d="M2 12l10 5 10-5"/>
+            </svg>
+            <span class="logo-text">AgentForge</span>
+        </a>
+        <div class="header-actions">
+            <button id="new-project-btn" class="btn btn-primary">
+                <svg viewBox="0 0 20 20" fill="currentColor" class="btn-icon">
+                    <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"/>
+                </svg>
+                <span>New Project</span>
+            </button>
+        </div>
+    </div>
+</header>
+
+<!-- Main Content -->
+<main class="main">
+    <div class="main-container">
+        <div class="page-header">
+            <h1>Your Projects</h1>
+            <p>Select a project to open in the IDE or create a new one</p>
+        </div>
+        
+        <!-- Projects Grid -->
+        <div class="projects-grid" id="projects-grid">
+            {% for project in projects %}
+            <div class="project-card" data-project-id="{{ project.id }}">
+                <div class="project-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                    </svg>
+                </div>
+                <div class="project-info">
+                    <h3 class="project-name">{{ project.name }}</h3>
+                    <p class="project-path">{{ project.path }}</p>
+                    <div class="project-meta">
+                        {% if project.is_indexed %}
+                        <span class="badge badge-success">
+                            <svg viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/>
+                            </svg>
+                            Indexed
+                        </span>
+                        {% else %}
+                        <span class="badge badge-warning">Not Indexed</span>
+                        {% endif %}
+                        <span class="project-date">{{ project.updated_at|timesince }} ago</span>
+                    </div>
+                </div>
+                <div class="project-actions">
+                    <a href="{% url 'ide:editor' project.id %}" class="btn btn-secondary btn-small">
+                        Open
+                    </a>
+                    <button class="btn btn-ghost btn-icon-only delete-project-btn" data-project-id="{{ project.id }}">
+                        <svg viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            {% empty %}
+            <div class="empty-state">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                </svg>
+                <h3>No Projects Yet</h3>
+                <p>Create your first project to get started with AgentForge</p>
+                <button id="empty-new-project-btn" class="btn btn-primary">
+                    Create Project
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</main>
+
+<!-- New Project Modal -->
+<div id="new-project-modal" class="modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Create New Project</h2>
+            <button class="modal-close" id="modal-close">
+                <svg viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"/>
+                </svg>
+            </button>
+        </div>
+        <form id="new-project-form">
+            <div class="form-group">
+                <label for="project-name">Project Name</label>
+                <input type="text" id="project-name" name="name" required placeholder="my-awesome-project">
+            </div>
+            <div class="form-group">
+                <label for="project-description">Description <span class="optional">(optional)</span></label>
+                <textarea id="project-description" name="description" rows="3" placeholder="A brief description of your project..."></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" id="modal-cancel">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Project</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="delete-modal" class="modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content modal-small">
+        <div class="modal-header">
+            <h2>Delete Project</h2>
+        </div>
+        <p class="modal-message">Are you sure you want to delete this project? This action cannot be undone.</p>
+        <div class="form-actions">
+            <button type="button" class="btn btn-secondary" id="delete-cancel">Cancel</button>
+            <button type="button" class="btn btn-danger" id="delete-confirm">Delete</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% load static %}
+<script src="{% static 'js/dashboard.js' %}"></script>
+{% endblock %}

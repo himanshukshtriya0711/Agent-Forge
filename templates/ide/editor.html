@@ -1,0 +1,312 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ project.name }} - AgentForge{% endblock %}
+{% block body_class %}editor-page{% endblock %}
+
+{% block extra_css %}
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/editor.css' %}">
+{% endblock %}
+
+{% block content %}
+<!-- IDE Layout -->
+<div class="ide-container">
+    <!-- Top Bar -->
+    <header class="ide-header">
+        <div class="header-left">
+            <a href="{% url 'ide:dashboard' %}" class="back-btn">
+                <svg viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"/>
+                </svg>
+            </a>
+            <div class="project-info">
+                <span class="project-name">{{ project.name }}</span>
+                <span class="project-status" id="project-status">
+                    {% if project.is_indexed %}
+                    <span class="status-dot status-success"></span>
+                    Indexed
+                    {% else %}
+                    <span class="status-dot status-warning"></span>
+                    Not Indexed
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button id="run-btn" class="btn btn-success btn-small" title="Run File (F5)">
+                <svg viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>
+                </svg>
+                <span>Run</span>
+            </button>
+            <button id="index-btn" class="btn btn-ghost btn-small" title="Index Project">
+                <svg viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"/>
+                </svg>
+                <span>Reindex</span>
+            </button>
+            <button id="new-file-btn" class="btn btn-ghost btn-small" title="New File">
+                <svg viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V8z"/>
+                </svg>
+                <span>New File</span>
+            </button>
+            <button id="save-btn" class="btn btn-primary btn-small" title="Save File (Ctrl+S)">
+                <svg viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/>
+                </svg>
+                <span>Save</span>
+            </button>
+        </div>
+    </header>
+    
+    <!-- Main IDE Area -->
+    <div class="ide-main">
+        <!-- File Explorer Sidebar -->
+        <aside class="sidebar" id="file-sidebar">
+            <div class="sidebar-header">
+                <h3>Explorer</h3>
+                <button class="collapse-btn" id="collapse-sidebar" title="Collapse">
+                    <svg viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="file-tree" id="file-tree">
+                <!-- File tree will be populated by JavaScript -->
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <span>Loading files...</span>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- Editor Area -->
+        <main class="editor-area">
+            <!-- Tab Bar -->
+            <div class="tab-bar" id="tab-bar">
+                <div class="tabs" id="editor-tabs">
+                    <!-- Tabs will be added dynamically -->
+                </div>
+            </div>
+            
+            <!-- Monaco Editor Container -->
+            <div class="editor-container" id="editor-container">
+                <div class="editor-welcome" id="editor-welcome">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+                    </svg>
+                    <h2>Welcome to AgentForge</h2>
+                    <p>Select a file from the explorer to start editing</p>
+                    <p class="hint">Or use the AI Agent panel to generate new code</p>
+                </div>
+                <div id="monaco-editor"></div>
+            </div>
+            
+            <!-- Terminal/Output Panel -->
+            <div class="terminal-panel" id="terminal-panel">
+                <div class="terminal-header">
+                    <div class="terminal-tabs">
+                        <button class="terminal-tab active" data-tab="output">Output</button>
+                        <button class="terminal-tab" data-tab="terminal">Terminal</button>
+                    </div>
+                    <div class="terminal-actions">
+                        <button id="clear-terminal" class="btn-icon" title="Clear">
+                            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                            </svg>
+                        </button>
+                        <button id="toggle-terminal" class="btn-icon" title="Toggle Terminal">
+                            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                                <path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="terminal-content" id="terminal-content">
+                    <div class="terminal-output" id="terminal-output">
+                        <div class="terminal-welcome">Click "Run" or press F5 to execute the current file</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <!-- Agent Panel -->
+        <aside class="agent-panel" id="agent-panel">
+            <div class="panel-header">
+                <h3>
+                    <svg viewBox="0 0 20 20" fill="currentColor" class="panel-icon">
+                        <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z"/>
+                        <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z"/>
+                    </svg>
+                    AI Agent
+                </h3>
+                <button class="collapse-btn" id="collapse-panel" title="Collapse">
+                    <svg viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Chat Messages -->
+            <div class="chat-messages" id="chat-messages">
+                {% for message in messages %}
+                <div class="message message-{{ message.role }}">
+                    <div class="message-avatar">
+                        {% if message.role == 'user' %}
+                        <svg viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"/>
+                        </svg>
+                        {% else %}
+                        <svg viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z"/>
+                        </svg>
+                        {% endif %}
+                    </div>
+                    <div class="message-content">{{ message.content|linebreaks }}</div>
+                </div>
+                {% empty %}
+                <div class="chat-welcome">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+                    </svg>
+                    <h3>How can I help?</h3>
+                    <p>Ask me to write code, fix bugs, explain concepts, or refactor your project.</p>
+                    <div class="suggestions">
+                        <button class="suggestion-btn" data-prompt="Create a Python function that">
+                            Write code
+                        </button>
+                        <button class="suggestion-btn" data-prompt="Explain this code:">
+                            Explain code
+                        </button>
+                        <button class="suggestion-btn" data-prompt="Find and fix bugs in">
+                            Debug
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Pending Changes -->
+            <div class="pending-changes" id="pending-changes" {% if not pending_changes %}style="display:none;"{% endif %}>
+                <div class="pending-header">
+                    <h4>Pending Changes</h4>
+                    <span class="badge" id="pending-count">{{ pending_changes|length }}</span>
+                </div>
+                <div class="changes-list" id="changes-list">
+                    {% for change in pending_changes %}
+                    <div class="change-item" data-change-id="{{ change.id }}">
+                        <div class="change-info">
+                            <span class="change-type change-type-{{ change.change_type }}">{{ change.change_type }}</span>
+                            <span class="change-file">{{ change.file_path }}</span>
+                        </div>
+                        <div class="change-actions">
+                            <button class="btn btn-icon btn-success preview-change-btn" title="Preview">
+                                <svg viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
+                                    <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z"/>
+                                </svg>
+                            </button>
+                            <button class="btn btn-icon btn-success apply-change-btn" title="Apply">
+                                <svg viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/>
+                                </svg>
+                            </button>
+                            <button class="btn btn-icon btn-danger reject-change-btn" title="Reject">
+                                <svg viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Chat Input -->
+            <div class="chat-input-container">
+                <form id="chat-form">
+                    <div class="input-wrapper">
+                        <textarea 
+                            id="chat-input" 
+                            placeholder="Ask the AI agent..."
+                            rows="1"
+                        ></textarea>
+                        <button type="submit" class="send-btn" id="send-btn">
+                            <svg viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </form>
+                <div class="input-hint">
+                    <span>Press <kbd>Enter</kbd> to send, <kbd>Shift+Enter</kbd> for new line</span>
+                </div>
+            </div>
+        </aside>
+    </div>
+</div>
+
+<!-- Diff Preview Modal -->
+<div id="diff-modal" class="modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content modal-large">
+        <div class="modal-header">
+            <h2>Change Preview</h2>
+            <button class="modal-close" id="diff-modal-close">
+                <svg viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"/>
+                </svg>
+            </button>
+        </div>
+        <div class="diff-file-info" id="diff-file-info"></div>
+        <div class="diff-view" id="diff-view"></div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" id="diff-cancel">Close</button>
+            <button class="btn btn-primary" id="diff-apply">Apply Change</button>
+        </div>
+    </div>
+</div>
+
+<!-- New File Modal -->
+<div id="new-file-modal" class="modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content modal-small">
+        <div class="modal-header">
+            <h2>Create New File</h2>
+            <button class="modal-close" id="new-file-modal-close">
+                <svg viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"/>
+                </svg>
+            </button>
+        </div>
+        <form id="new-file-form">
+            <div class="form-group">
+                <label for="file-path">File Path</label>
+                <input type="text" id="new-file-path" name="path" required placeholder="src/components/Button.tsx">
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" id="new-file-cancel">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Hidden data -->
+<script type="application/json" id="project-data">
+{
+    "id": "{{ project.id }}",
+    "name": "{{ project.name|escapejs }}",
+    "path": "{{ project.path|escapejs }}",
+    "sessionId": "{{ session.id }}"
+}
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Monaco Editor -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+{% load static %}
+<script src="{% static 'js/editor.js' %}"></script>
+{% endblock %}
